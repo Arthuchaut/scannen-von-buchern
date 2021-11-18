@@ -3,6 +3,8 @@ from typing import Any, Iterator
 import pathlib
 from bs4 import BeautifulSoup
 import requests
+from bibliothek._daten_extraktor import _DatenExtraktor
+from bibliothek._daten_lader import _DatenLader
 
 
 @dataclass
@@ -21,6 +23,18 @@ class Buch:
 
 class ScannenVonBüchern:
     _BASISURL: str = 'https://books.toscrape.com/'
+
+    def __init__(self, zielordner: pathlib.Path) -> None:
+        '''The constructor.
+
+        Args:
+            zielordner (pathlib.Path): The output directory.
+        '''
+
+        self._zielordner_bild: pathlib.Path = zielordner / 'img'
+        self._zielordner_csv: pathlib.Path = zielordner / 'csv'
+        self._zielordner_bild.mkdir(exist_ok=True)
+        self._zielordner_csv.mkdir(exist_ok=True)
 
     def _erhalten(self, url: str) -> requests.Response:
         '''Request an URL and returns the response.
@@ -139,73 +153,25 @@ class ScannenVonBüchern:
         '''
 
         soup: BeautifulSoup = self._seitenbaum_holen(buch_url)
-        upc: str
-        titel: str
-        preis_inklusive_steuern: float
-        preis_ohne_steuern: float
-        anzahl_verfügbar: int
-        produkt_beschreibung: str
-        kategorie: str
-        bewertung_der_rezension: float
-        bild_url: str
-
-        if spiel := soup.select(
-            'table.table.table-striped > tr:nth-of-type(1) > td'
-        ):
-            upc = spiel[0].text
-
-        if spiel := soup.select('div.product_main > h1'):
-            titel = spiel[0].text
-
-        if spiel := soup.select(
-            'table.table.table-striped > tr:nth-of-type(4) > td'
-        ):
-            preis_inklusive_steuern = spiel[0].text
-
-        if spiel := soup.select(
-            'table.table.table-striped > tr:nth-of-type(3) > td'
-        ):
-            preis_ohne_steuern = spiel[0].text
-
-        if spiel := soup.select(
-            'table.table.table-striped > tr:nth-of-type(6) > td'
-        ):
-            anzahl_verfügbar = spiel[0].text
-
-        if spiel := soup.select('#content_inner > article > p'):
-            produkt_beschreibung = spiel[0].text
-
-        if spiel := soup.select(
-            '#default > div > div > ul > li:nth-child(3) > a'
-        ):
-            kategorie = spiel[0].text
-
-        if spiel := soup.select('div.product_main > p.star-rating'):
-            bewertung_der_rezension = self._bewertung_erhalten(
-                spiel[0]['class'][-1]
-            )
-
-        if spiel := soup.select('#product_gallery > div > div > div > img'):
-            bild_url = self._BASISURL + spiel[0]['src'][6:]
-
+        daten_extraktor: _DatenExtraktor = _DatenExtraktor(soup)
         buch: Buch = Buch(
             url_der_produktseite=buch_url,
-            upc=upc,
-            titel=titel,
-            preis_inklusive_steuern=preis_inklusive_steuern,
-            preis_ohne_steuern=preis_ohne_steuern,
-            anzahl_verfügbar=anzahl_verfügbar,
-            produkt_beschreibung=produkt_beschreibung,
-            kategorie=kategorie,
-            bewertung_der_rezension=bewertung_der_rezension,
-            bild_url=bild_url,
+            upc=daten_extraktor.upc_extrahieren(),
+            titel=daten_extraktor.titel_extrahieren(),
+            preis_inklusive_steuern=daten_extraktor.preis_inklusive_steuern_extrahieren(),
+            preis_ohne_steuern=daten_extraktor.preis_ohne_steuern_extrahieren(),
+            anzahl_verfügbar=daten_extraktor.anzahl_verfügbar_extrahieren(),
+            produkt_beschreibung=daten_extraktor.produkt_beschreibung_extrahieren(),
+            kategorie=daten_extraktor.kategorie_extrahieren(),
+            bewertung_der_rezension=self._bewertung_erhalten(
+                daten_extraktor.bewertung_der_rezension_extrahieren()
+            ),
+            bild_url=self._BASISURL + daten_extraktor.bild_url_extrahieren(),
         )
 
         return buch
 
-    def bild_herunterladen(
-        self, bild_url: str, zielordner: pathlib.Path
-    ) -> None:
+    def bild_herunterladen(self, bild_url: str) -> None:
         '''Download and save the image from thea
         given URL.
 
@@ -215,10 +181,36 @@ class ScannenVonBüchern:
         '''
 
         antwort: requests.Response = self._erhalten(bild_url)
-        dateipfad: pathlib.Path = zielordner / bild_url.split('/')[-1]
+        dateipfad: pathlib.Path = (
+            self._zielordner_bild / bild_url.split('/')[-1]
+        )
         dateipfad.write_bytes(antwort.content)
 
+    def daten_speichern(self, bücherset: list[Buch]) -> None:
+        '''Save a list of books to a csv file.
+
+        Args:
+            bücherset (list[Buch]): The books list.
+        '''
+
+        csv_ordnerpfad: pathlib.Path = (
+            self._zielordner_csv
+            / f'{bücherset[0].kategorie.lower().replace(" ", "_")}'
+            f'_bücher.csv'
+        )
+        daten_lader: _DatenLader = _DatenLader()
+        daten_lader.in_csv_speichern(bücherset, csv_ordnerpfad)
+
     def _name_der_ressource_abrufen(self, seitenzahl: int) -> str:
+        '''Get the resource name acording to the givezn page count.
+
+        Args:
+            seitenzahl (int): The page count.
+
+        Returns:
+            str: The resource name.
+        '''
+
         if seitenzahl == 1:
             return 'index.html'
         else:
