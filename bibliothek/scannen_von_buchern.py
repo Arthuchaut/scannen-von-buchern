@@ -36,64 +36,6 @@ class ScannenVonBüchern:
         self._zielordner_bild.mkdir(exist_ok=True)
         self._zielordner_csv.mkdir(exist_ok=True)
 
-    def _erhalten(self, url: str) -> requests.Response:
-        '''Request an URL and returns the response.
-
-        Args:
-            url (str): The URL to request.
-
-
-        Returns:
-            requests.Response: The response if it's status code
-                is 200, else None.
-        '''
-
-        antwort: requests.Response = requests.get(url)
-
-        try:
-            antwort.raise_for_status()
-        except requests.HTTPError:
-            return None
-
-        return antwort
-
-    def _html_parsen(self, antwort: requests.Response) -> BeautifulSoup:
-        '''Parse the body of an HTTP response to a readable format.
-
-        Args:
-            antwort (requests.Response): The response to parse.
-
-        Raises:
-            ParsingFehler: If the body content is corrumpted.
-
-        Returns:
-            BeautifulSoup: The parsed HTML body.
-        '''
-
-        try:
-            soup: BeautifulSoup = BeautifulSoup(antwort.text, 'html.parser')
-        except Exception as e:
-            raise ParsingFehler(e)
-
-        return soup
-
-    def _seitenbaum_holen(self, url: str) -> BeautifulSoup:
-        '''Request the URL and return the parsed response.
-
-        Args:
-            url (str): The URL to request.
-
-        Returns:
-            BeautifulSoup: The parsed body response.
-        '''
-
-        antwort: requests.Response
-
-        if antwort := self._erhalten(url):
-            return self._html_parsen(antwort)
-
-        return None
-
     def iter_aus_kategorien(self) -> Iterator[str]:
         '''Get all categories URL.
 
@@ -102,7 +44,7 @@ class ScannenVonBüchern:
         '''
 
         soup: BeautifulSoup = self._seitenbaum_holen(
-            url='https://books.toscrape.com/index.html'
+            url=self._BASISURL + 'index.html'
         )
         kategorien_urls: list[dict[str, Any]] = soup.select(
             'ul > li a[href^="catalogue/category/books/"]'
@@ -200,6 +142,64 @@ class ScannenVonBüchern:
         )
         daten_lader: _DatenLader = _DatenLader()
         daten_lader.in_csv_speichern(bücherset, csv_ordnerpfad)
+
+    def _erhalten(self, url: str) -> requests.Response:
+        '''Request an URL and returns the response.
+
+        Args:
+            url (str): The URL to request.
+
+
+        Returns:
+            requests.Response: The response if it's status code
+                is 200, else None.
+        '''
+
+        antwort: requests.Response = requests.get(url)
+
+        try:
+            antwort.raise_for_status()
+        except requests.HTTPError:
+            return None
+
+        return antwort
+
+    def _html_parsen(self, antwort: requests.Response) -> BeautifulSoup:
+        '''Parse the body of an HTTP response to a readable format.
+
+        Args:
+            antwort (requests.Response): The response to parse.
+
+        Raises:
+            ParsingFehler: If the body content is corrumpted.
+
+        Returns:
+            BeautifulSoup: The parsed HTML body.
+        '''
+
+        try:
+            soup: BeautifulSoup = BeautifulSoup(antwort.text, 'html.parser')
+        except Exception as e:
+            raise ParsingFehler(e)
+
+        return soup
+
+    def _seitenbaum_holen(self, url: str) -> BeautifulSoup:
+        '''Request the URL and return the parsed response.
+
+        Args:
+            url (str): The URL to request.
+
+        Returns:
+            BeautifulSoup: The parsed body response.
+        '''
+
+        antwort: requests.Response
+
+        if antwort := self._erhalten(url):
+            return self._html_parsen(antwort)
+
+        return None
 
     def _name_der_ressource_abrufen(self, seitenzahl: int) -> str:
         '''Get the resource name acording to the givezn page count.
