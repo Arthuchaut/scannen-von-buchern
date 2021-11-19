@@ -31,7 +31,7 @@ class ScannenVonBüchern:
             zielordner (pathlib.Path): The output directory.
         '''
 
-        self._zielordner_bild: pathlib.Path = zielordner / 'img'
+        self._zielordner_bild: pathlib.Path = zielordner / 'bilder'
         self._zielordner_csv: pathlib.Path = zielordner / 'csv'
         self._zielordner_bild.mkdir(exist_ok=True)
         self._zielordner_csv.mkdir(exist_ok=True)

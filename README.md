@@ -1,10 +1,10 @@
-# WTF
+# Scannen von Buchern
 
-To run this program :
+So führen Sie dieses Programm aus :
 
 ```sh
 python -m venv venv
 .\venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r anforderungen.txt
 python -m anmeldung
 ```
