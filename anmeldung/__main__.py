@@ -10,7 +10,6 @@ class Haupt:
         '''The main method.'''
 
         t0: float = time.time()
-
         svb: ScannenVonBüchern = ScannenVonBüchern(
             zielordner=Haupt._ZIELORDNER
         )
